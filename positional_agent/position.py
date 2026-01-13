@@ -1,10 +1,9 @@
-from sr.robot3.camera import AprilCamera as Camera
-
 import numpy as np
+import asyncio
 from typing import TYPE_CHECKING
 
-from utils import mod_angle
-from enums import ZONE_POSITIONS, WALL_MARKERS
+from positional_agent.utils import mod_angle
+from positional_agent.enums import ZONE_POSITIONS, WALL_MARKERS, CAMERAS
 
 if TYPE_CHECKING:
     from sr.robot3.marker import Marker
@@ -67,16 +66,16 @@ class Position:
         front_markers = cam_markers.get("Camera", [])
         back_markers = cam_markers.get("Back Camera", [])
 
-        camera_offset = 50  # in mm
         best_marker = None
         best_marker_data = None
+        offsets = [CAMERAS["camera"]["position"], CAMERAS["back camera"]["position"]]
 
         for markers, offset, rotation_adjust in [
-            (front_markers, 50, 0),
-            (back_markers, -50, np.pi)
+            (front_markers, offsets[0], 0),
+            (back_markers, offsets[1], np.pi)
         ]:
             for marker in markers:
-                if marker.id > 27:
+                if marker.id > 20:
                     continue
                 marker_score = marker.position.distance
                 if best_marker is None or marker_score < best_marker_data[0]:
@@ -87,14 +86,17 @@ class Position:
                         update_rotation + rotation_adjust + marker.position.horizontal_angle
                     )
 
+        asyncio.run(self._robot.trigger_actions("on_transform_update"))
+
         if not best_marker:
             return False
 
         marker_distance, camera_offset, marker_angle = best_marker_data
+        marker_distance = np.sqrt(marker_distance**2 - camera_offset[1]**2)
         marker_pos = np.array(WALL_MARKERS[best_marker.id])
         marker_rel_pos = np.array([
-            marker_distance * np.sin(marker_angle) + camera_offset * np.sin(update_rotation),
-            marker_distance * np.cos(marker_angle) + camera_offset * np.cos(update_rotation)
+            marker_distance * np.sin(marker_angle) + camera_offset[0] * np.sin(update_rotation),
+            marker_distance * np.cos(marker_angle) + camera_offset[0] * np.cos(update_rotation)
         ])
         self._update_position = marker_pos - marker_rel_pos
         self._update_rotation = update_rotation

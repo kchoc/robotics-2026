@@ -7,7 +7,7 @@ import pyopencl as cl
 import asyncio
 import traceback
 
-from enums import CAMERAS
+from positional_agent.enums import CAMERAS
 
 if TYPE_CHECKING:
     from sr.robot3.camera import AprilCamera as Camera
@@ -36,7 +36,7 @@ class Arena:
         self.mf = cl.mem_flags
 
         # Compile the OpenCL kernel once
-        with open("./gpu_scripts/update_markers.cl", "r") as f:
+        with open("./positional_agent/gpu_scripts/update_markers.cl", "r") as f:
             kernel_code = f.read()
         self.program = cl.Program(self.ctx, kernel_code).build()
         self.update_markers = self.program.update_markers
@@ -69,7 +69,7 @@ class Arena:
     def update_box_markers(self) -> None:
         marker_data = []
         for marker in self._cam_markers["Camera"]:
-            if marker.id >= 28:
+            if marker.id >= 21:
                 marker_data.append([
                     marker.id,
                     marker.orientation.roll,
@@ -112,7 +112,7 @@ class Arena:
             return
         grid = np.full((res + 2, res + 2), " ", dtype=str)
         grid[0, :] = grid[-1, :] = grid[:, 0] = grid[:, -1] = "#"
-        for i in range(28, len(self._markers)):
+        for i in range(21, len(self._markers)):
             if self._markers[i][0] == 0:
                 continue
 
