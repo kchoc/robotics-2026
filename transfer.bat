@@ -1,0 +1,1 @@
+scp *.py robot@robot.lan:/media/robot/2515-F4EC8

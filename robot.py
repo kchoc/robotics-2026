@@ -14,14 +14,17 @@ class Robot:
     self.motion = Motion(self)
     self.controller = Controller(self)
     self.navigation = Navigation(self)
+    self.autonomous = False
 
-    self.navigation.move_to_marker(171)
+    self.run()
 
   def __getattr__(self, name):
+    """Delegate attribute access to sr_robot if not found in Robot."""
     return getattr(self.sr_robot, name)
 
   def run(self):
     while True:
-      ...
+      if self.autonomous:
+        self.navigation.move_to_marker(171)
 
 robot = Robot()    

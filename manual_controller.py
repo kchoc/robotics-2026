@@ -54,5 +54,17 @@ class Controller:
       
       # Button controls
       elif e.ev_type == "Key" and e.state == 1:  # Button pressed
-        if e.code == "BTN_SOUTH":  # A button
+        if e.code == "BTN_SOUTH":  # X button
           self.robot.autonomous = not self.robot.autonomous
+        elif e.code == "BTN_NORTH":  # Triangle button
+          self.robot.motion.reset_grabber()
+          self.robot.motion.grab()
+        elif e.code == "BTN_WEST":  # Square button
+          self.robot.motion.reset_grabber()
+          self.robot.motion.release()
+        elif e.code == "BTN_EAST":  # Circle button
+          if not self.robot.motion.emergency_stopped:
+            self.robot.motion.emergency_stop()
+          else:
+            self.robot.motion.reset_emergency_stop()
+          

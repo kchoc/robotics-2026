@@ -26,7 +26,7 @@ class Navigation:
     lost_count = -20
     found = False
     
-    while True:
+    while self.robot.autonomous:
       if (marker:= self.get_marker(marker_id)) is None: # Marker lost - rotate in direction of last known angle
         if (lost_count := lost_count + 1) > 20: found = False; break
         
@@ -59,8 +59,12 @@ class Navigation:
     while abs(angle := (marker[2] if (marker := self.get_marker(marker_id)) is not None else last_alpha)) > 0.02:
       speed = math.tanh(angle * 2) * turn_speed  # Smooth turning speed
       self.robot.motion.set_motor_speeds(speed, -speed, time=0.05)
+      if self.robot.autonomous == False:
+        return False
 
     for i in range(5):  # Small forward adjustment to ensure proximity
       self.robot.motion.set_motor_speeds(0.1 * i, 0.1 * i, time=0.2)
+      if self.robot.autonomous == False:
+        return False
     self.robot.motion.set_motor_speeds(0, 0)
     return found
