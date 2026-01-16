@@ -18,9 +18,6 @@ class Controller:
 
     if self.robot.sr_robot.is_simulated:
       return  # No manual control in simulation
-
-    self.control_thread = Thread(target=self.run, daemon=True)
-    self.control_thread.start()
   
   def run(self):
     while True:
@@ -48,14 +45,23 @@ class Controller:
         left_speed = max(min(left_speed, 1.0), -1.0)
         right_speed = max(min(right_speed, 1.0), -1.0)
 
-        self.robot.motion.grab_analog(self.open_grabber, self.extend_grabber)
+        if not self.robot.motion.emergency_stopped:
+          self.robot.motion.movement_board.motors[0].power = left_speed
+          self.robot.motion.movement_board.motors[1].power = right_speed
+          self.robot.motion.grabber_board.motors[1].power = self.open_grabber
+          self.robot.motion.grabber_board.motors[0].power = self.extend_grabber
 
-        self.robot.motion.set_motor_speeds(left_speed, right_speed)
+        # self.robot.motion.grab_analog(self.open_grabber, self.extend_grabber)
+        # self.robot.motion.set_motor_speeds(left_speed, right_speed)
       
       # Button controls
       elif e.ev_type == "Key" and e.state == 1:  # Button pressed
         if e.code == "BTN_SOUTH":  # X button
           self.robot.autonomous = not self.robot.autonomous
+          if self.robot.autonomous:
+            self.robot.motion.stop()
+            self.robot.vision.see()
+            self.robot.target_box_id = self.robot.tactics.calculate_risk_reward()[0]
         elif e.code == "BTN_NORTH":  # Triangle button
           self.robot.motion.reset_grabber()
           self.robot.motion.grab()

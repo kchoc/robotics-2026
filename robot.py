@@ -7,14 +7,19 @@ from manual_controller import Controller
 from navigation import Navigation
 
 class Robot:
+  autonomous = True
+  target_box_id = -1
+
   def __init__(self):
     self.sr_robot = SRRobot()
     self.vision = Vision(self)
     self.tactics = Tactics(self)
     self.motion = Motion(self)
-    self.controller = Controller(self)
+    # self.controller = Controller(self)
     self.navigation = Navigation(self)
-    self.autonomous = False
+
+    # while True:
+      # self.vision.see()
 
     self.run()
 
@@ -24,7 +29,15 @@ class Robot:
 
   def run(self):
     while True:
-      if self.autonomous:
-        self.navigation.move_to_marker(171)
+      if not self.sr_robot.is_simulated:
+        self.controller.process_inputs()
+
+      if self.autonomous and self.target_box_id != -1:
+        if self.navigation.move_to_marker(self.target_box_id) == "FOUND":
+          print(f"Marker {self.target_box_id} found")
+          self.motion.stop()
+          self.motion.grab()
+          self.target_box_id = -1
+      
 
 robot = Robot()    
