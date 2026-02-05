@@ -11,13 +11,14 @@ Maker Catalog:
 140-179: Basic markers
 """
 
-#TODO: Find height of box markers and not assume on ground
+#TODO: I think true yaw calculations are incorrect as when looking at clearly turned boxes, it still states the true_yaw is 0 rad
+# even though the yaw is wrong it still manages to go to the box??
 #TODO Not repeat calculations if multiple faces of same box are visible?
 #TODO tbh I'm not sure if I kept units consistent across everything, should probably check that 
 # Distance is given in mm 
 
 CAMERA_ROTATION = np.array([0, 0, 0])  # Roll, Pitch, Yaw in radians
-CAMERA_POSITION = np.array([0, 0.005, 0])  # X, Y, Z in from front center of robot
+CAMERA_POSITION = np.array([0, 0.005, 0])  # X, Y, Z in METRES from front center of robot
 
 def unwrap_angle(new, prev):
     """Keep angle continuous across +-2pi boundaries (Had problems with box yaw jumping)"""
@@ -43,7 +44,7 @@ def camera_to_robot_frame(cam_xy):
   R = rot_z(CAMERA_ROTATION[2])
   return R @ cam_xy + CAMERA_POSITION[:2]
 
-def compute_box_center_polar(distance, horizontal_angle, yaw, box_width):
+def compute_box_center_polar(distance, horizontal_angle, yaw, box_width, vertical_angle=0):
     """Find the center position of a box given one marker position and yaw"""
 
      # Marker position in camera frame
@@ -62,7 +63,12 @@ def compute_box_center_polar(distance, horizontal_angle, yaw, box_width):
     center_distance = np.linalg.norm(center_pos)
     center_angle = np.arctan2(center_pos[1], center_pos[0])
 
-    return center_distance, center_angle
+    height = np.sin(vertical_angle) * center_distance  # Find height based on angle and distance
+    center_distance = np.cos(vertical_angle) * center_distance  # Adjust distance for height
+        
+    
+
+    return center_distance, center_angle, height
 
 class Vision:
 
@@ -103,7 +109,7 @@ class Vision:
 
       elif 100 <= marker.id < 180:
 
-        # Finding actual yaw of box depending on fiducial marker orientation assuming box is flat on the ground
+        #Finding actual yaw of box depending on fiducial marker orientation assuming box is flat on the ground
         if (marker.orientation.roll + 0.1) % (np.pi/2) > 0.2: # Roll is roughly pi/2 or 3pi/2
           true_yaw = marker.orientation.pitch
         
@@ -111,8 +117,9 @@ class Vision:
           true_yaw = marker.orientation.yaw
 
         else:
-          true_yaw = marker.orientation.roll  
-        
+          true_yaw = marker.orientation.roll
+        print(f"True yaw for marker {marker.id} based on roll and pitch: {true_yaw:.2f}rad")
+
         # Add camera yaw and ensure angle continuity across frames
         raw_yaw = true_yaw + CAMERA_ROTATION[2]
         idx = marker.id - 100
@@ -121,23 +128,23 @@ class Vision:
         true_yaw = raw_yaw
 
         # Compute robot-frame center of the box
-        center_distance, center_angle = compute_box_center_polar(
+        center_distance, center_angle, center_height = compute_box_center_polar(
           marker.position.distance,
           marker.position.horizontal_angle,
           true_yaw,
-          box_width=80 #(mm)
+          box_width=80, #(mm)
+          vertical_angle=marker.position.vertical_angle
         )
 
         # Store box data
         self.boxes[marker.id - 100] = np.array([
           center_distance,
-          0,
+          center_height,
           center_angle,
           true_yaw,
           time
         ])
-        print(f"Box {marker.id}: Center Distance={center_distance:.2f}mm, Center Angle={center_angle:.2f}rad, Yaw={true_yaw:.2f}rad")
-      
+        print(f"Box {marker.id}: Center Distance={center_distance:.2f}mm, Height={center_height:.2f}mm, Center Angle={center_angle:.2f}rad, Yaw={true_yaw:.2f}rad")      
       # print(f"Marker {marker.id}: Distance={horizontal_distance:.2f}m, Height={height:.2f}m, H_Angle={marker.position.horizontal_angle:.2f}rad, Yaw={yaw:.2f}rad")
   
     # Later, we can add robot detection here
