@@ -46,8 +46,8 @@ class Controller:
         right_speed = max(min(right_speed, 1.0), -1.0)
 
         if not self.robot.motion.emergency_stopped:
-          self.robot.motion.movement_board.motors[0].power = left_speed
-          self.robot.motion.movement_board.motors[1].power = right_speed
+          self.robot.motion.movement_board.motors[0].power = right_speed * 0.4
+          self.robot.motion.movement_board.motors[1].power = -left_speed * 0.4
           self.robot.motion.grabber_board.motors[1].power = self.open_grabber
           self.robot.motion.grabber_board.motors[0].power = self.extend_grabber
 
@@ -58,19 +58,16 @@ class Controller:
       elif e.ev_type == "Key" and e.state == 1:  # Button pressed
         if e.code == "BTN_SOUTH":  # X button
           self.robot.autonomous = not self.robot.autonomous
-          if self.robot.autonomous:
-            self.robot.motion.stop()
-            self.robot.vision.see()
-            self.robot.target_box_id = self.robot.tactics.calculate_risk_reward()[0]
+          self.robot.motion.stop()
         elif e.code == "BTN_NORTH":  # Triangle button
-          self.robot.motion.reset_grabber()
-          self.robot.motion.grab()
+          self.robot.motion.grab_low()
         elif e.code == "BTN_WEST":  # Square button
-          self.robot.motion.reset_grabber()
-          self.robot.motion.release()
+          self.robot.motion.release_low()
         elif e.code == "BTN_EAST":  # Circle button
           if not self.robot.motion.emergency_stopped:
+            print("Emergency Stopped!")
             self.robot.motion.emergency_stop()
           else:
+            print("Emergency Stop Resuming!")
             self.robot.motion.reset_emergency_stop()
           
