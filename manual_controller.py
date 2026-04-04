@@ -1,73 +1,74 @@
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
   from robot import Robot
 from inputs import get_gamepad
-from threading import Thread
+
+from motion import Motion
+from vision import Vision
 
 def normalize_axis(value):
     """Convert axis (0-255) to -1.0 -> 1.0"""
     return (value - 128) / 128
 
 class Controller:
+  robot: "Robot" = None
+  forward = 0
+  turn = 0
+  open_grabber = 0
+  extend_grabber = 0
+  max_speed = 0.4
+
+
   def __init__(self, robot: "Robot"):
-    self.robot = robot
-    self.forward = 0
-    self.turn = 0
-    self.open_grabber = 0
-    self.extend_grabber = 0
+    Controller.robot = robot
 
-    if self.robot.sr_robot.is_simulated:
-      return  # No manual control in simulation
-  
-  def run(self):
-    while True:
-      self.process_inputs()
-
-  def process_inputs(self):
+  @classmethod
+  def process_inputs(cls):
     events = get_gamepad()
     for e in events:
       # Joystick controls
-      if e.ev_type == "Absolute" and self.robot.autonomous == False:
+      if e.ev_type == "Absolute" and Controller.robot.autonomous == False:
         if e.code == "ABS_Y":  # forward/back
-          self.forward = normalize_axis(e.state)  # invert: up = positive
+          Controller.forward = normalize_axis(e.state)  # invert: up = positive
         elif e.code == "ABS_X":  # left/right
-          self.turn = normalize_axis(e.state)
+          Controller.turn = normalize_axis(e.state)
         elif e.code == "ABS_RZ":  # forward/back
-          self.open_grabber = normalize_axis(e.state) / 4  # invert: up = positive
+          Controller.open_grabber = normalize_axis(e.state) * 0.5  # invert: up = positive
         elif e.code == "ABS_Z":  # left/right
-          self.extend_grabber = normalize_axis(e.state) / 4
+          Controller.extend_grabber = normalize_axis(e.state) * 0.5
+        elif e.code == "ABS_BRAKE": # Speed Boost
+          Controller.max_speed = 0.7 + normalize_axis(e.state) * 0.3
 
         # Compute motor speeds (-1.0 to 1.0)
-        left_speed = self.forward + self.turn
-        right_speed = self.forward - self.turn
+        left_speed = Controller.forward + Controller.turn
+        right_speed = Controller.forward - Controller.turn
 
         # Clamp speeds
         left_speed = max(min(left_speed, 1.0), -1.0)
         right_speed = max(min(right_speed, 1.0), -1.0)
 
-        if not self.robot.motion.emergency_stopped:
-          self.robot.motion.movement_board.motors[0].power = right_speed * 0.4
-          self.robot.motion.movement_board.motors[1].power = -left_speed * 0.4
-          self.robot.motion.grabber_board.motors[1].power = self.open_grabber
-          self.robot.motion.grabber_board.motors[0].power = self.extend_grabber
-
-        # self.robot.motion.grab_analog(self.open_grabber, self.extend_grabber)
-        # self.robot.motion.set_motor_speeds(left_speed, right_speed)
+        if not Motion.emergency_stopped:
+          Motion.movement_board.motors[0].power = right_speed * Controller.max_speed
+          Motion.movement_board.motors[1].power = -left_speed * Controller.max_speed
+          Motion.grabber_board.motors[1].power = Controller.open_grabber
+          Motion.grabber_board.motors[0].power = Controller.extend_grabber
       
       # Button controls
       elif e.ev_type == "Key" and e.state == 1:  # Button pressed
-        if e.code == "BTN_SOUTH":  # X button
-          self.robot.autonomous = not self.robot.autonomous
-          self.robot.motion.stop()
+        if e.code == "BTN_START":
+          Controller.robot.autonomous = not Controller.robot.autonomous
+          Motion.stop()
+        elif e.code == "BTN_SOUTH":
+          Vision.scan()
         elif e.code == "BTN_NORTH":  # Triangle button
-          self.robot.motion.grab_low()
+          Motion.grab_low()
         elif e.code == "BTN_WEST":  # Square button
-          self.robot.motion.release_low()
+          Motion.release_low()
         elif e.code == "BTN_EAST":  # Circle button
-          if not self.robot.motion.emergency_stopped:
+          if not Motion.emergency_stopped:
             print("Emergency Stopped!")
-            self.robot.motion.emergency_stop()
+            Motion.emergency_stop()
           else:
             print("Emergency Stop Resuming!")
-            self.robot.motion.reset_emergency_stop()
-          
+            Motion.reset_emergency_stop()
